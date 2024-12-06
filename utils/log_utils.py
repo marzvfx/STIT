@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 from PIL import Image
 import wandb
@@ -62,3 +64,54 @@ def get_image_from_w(w, G):
         img = G.synthesis(w, noise_mode='const')
         img = (img.permute(0, 2, 3, 1) * 127.5 + 128).clamp(0, 255).to(torch.uint8).detach().cpu().numpy()
     return img[0]
+
+
+def save_latent_data(save_dir, starting_expression, target_expression, starting_ws, starting_mean_w, target_ws,
+                     target_mean_w, direction):
+    """
+    Save latent data to a directory.
+
+    Args:
+        save_dir (str): Directory to save the data.
+        starting_expression (str): Starting expression label.
+        target_expression (str): Target expression label.
+        starting_ws (dict): Dictionary of {filename: torch tensor}.
+        starting_mean_w (torch.Tensor): Mean latent vector for the starting expression.
+        target_ws (dict): Dictionary of {filename: torch tensor}.
+        target_mean_w (torch.Tensor): Mean latent vector for the target expression.
+        direction (torch.Tensor): Direction vector from starting to target.
+    """
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
+    file_prefix = f"{starting_expression}_to_{target_expression}"
+
+    # Save the individual components
+    torch.save(starting_ws, os.path.join(save_dir, f"{file_prefix}_starting_ws.pt"))
+    torch.save(starting_mean_w, os.path.join(save_dir, f"{file_prefix}_starting_mean_w.pt"))
+    torch.save(target_ws, os.path.join(save_dir, f"{file_prefix}_target_ws.pt"))
+    torch.save(target_mean_w, os.path.join(save_dir, f"{file_prefix}_target_mean_w.pt"))
+    torch.save(direction, os.path.join(save_dir, f"{file_prefix}_direction.pt"))
+
+
+def load_latent_data(save_dir, starting_expression, target_expression):
+    """
+    Load latent data from a directory.
+
+    Args:
+        save_dir (str): Directory to load the data from.
+        starting_expression (str): Starting expression label.
+        target_expression (str): Target expression label.
+
+    Returns:
+        tuple: (starting_ws, starting_mean_w, target_ws, target_mean_w, direction)
+    """
+    file_prefix = f"{starting_expression}_to_{target_expression}"
+
+    starting_ws = torch.load(os.path.join(save_dir, f"{file_prefix}_starting_ws.pt"))
+    starting_mean_w = torch.load(os.path.join(save_dir, f"{file_prefix}_starting_mean_w.pt"))
+    target_ws = torch.load(os.path.join(save_dir, f"{file_prefix}_target_ws.pt"))
+    target_mean_w = torch.load(os.path.join(save_dir, f"{file_prefix}_target_mean_w.pt"))
+    direction = torch.load(os.path.join(save_dir, f"{file_prefix}_direction.pt"))
+
+    return starting_ws, starting_mean_w, target_ws, target_mean_w, direction

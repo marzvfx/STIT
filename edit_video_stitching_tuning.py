@@ -184,15 +184,15 @@ def _main(input_folder, output_folder, start_frame, end_frame, run_name,
 
             folder_name = f'{direction}/{factor}'
 
-            video_frame = concat_images_horizontally(orig_image, edit_projection, optimized_projection)
-            video_frame = add_texts_to_image_vertical(['original', 'mask', 'stitching tuning'], video_frame)
+            # video_frame = concat_images_horizontally(orig_image, edit_projection, optimized_projection)
+            # video_frame = add_texts_to_image_vertical(['original', 'mask', 'stitching tuning'], video_frame)
 
-            video_frames[folder_name].append(video_frame)
+            video_frames[folder_name].append(optimized_projection)
 
-            video_frame = concat_images_horizontally(orig_image, edit_projection, optimized_projection_feathered)
-            video_frame = add_texts_to_image_vertical(['original', 'mask', 'stitching tuning'], video_frame)
+            # video_frame = concat_images_horizontally(orig_image, edit_projection, optimized_projection_feathered)
+            # video_frame = add_texts_to_image_vertical(['original', 'mask', 'stitching tuning'], video_frame)
 
-            video_frames[f'{folder_name}/feathering'].append(video_frame)
+            video_frames[f'{folder_name}/feathering'].append(optimized_projection_feathered)
 
             if output_frames:
                 frames_dir = os.path.join(output_folder, 'frames', folder_name)

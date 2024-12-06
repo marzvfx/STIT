@@ -27,7 +27,7 @@ def load_tuned_G(run_id):
     return new_G, pivots, quads
 
 
-def load_old_G():
+def load_old_G() -> Generator:
     return load_g(paths_config.stylegan2_ada_ffhq)
 
 

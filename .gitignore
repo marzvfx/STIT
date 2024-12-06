@@ -153,3 +153,17 @@ dmypy.json
 cython_debug/
 
 .idea
+
+checkpoints/
+
+frames_extracted/
+
+pretrained_models/
+
+video_frames/
+
+videos/
+
+edits/
+
+checkpoints_test/

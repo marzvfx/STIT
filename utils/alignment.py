@@ -1,3 +1,5 @@
+import os.path
+
 import PIL
 import PIL.Image
 import dlib
@@ -154,12 +156,17 @@ def crop_faces(IMAGE_SIZE, files, scale, center_sigma=0.0, xy_sigma=0.0, use_fa=
         detector = dlib.get_frontal_face_detector()
 
     cs, xs, ys = [], [], []
-    for _, path in tqdm(files):
-        c, x, y = compute_transform(path, predictor, detector=detector,
-                                    scale=scale, fa=fa)
-        cs.append(c)
-        xs.append(x)
-        ys.append(y)
+    croppable_frames = []
+    for filename, path in tqdm(files):
+        try:
+            c, x, y = compute_transform(path, predictor, detector=detector,
+                                        scale=scale, fa=fa)
+            cs.append(c)
+            xs.append(x)
+            ys.append(y)
+            croppable_frames.append((filename, path))
+        except Exception as e:
+            print(e)
 
     cs = np.stack(cs)
     xs = np.stack(xs)
@@ -174,20 +181,22 @@ def crop_faces(IMAGE_SIZE, files, scale, center_sigma=0.0, xy_sigma=0.0, use_fa=
     quads = np.stack([cs - xs - ys, cs - xs + ys, cs + xs + ys, cs + xs - ys], axis=1)
     quads = list(quads)
 
-    crops, orig_images = crop_faces_by_quads(IMAGE_SIZE, files, quads)
+    crops, orig_images, cropped_files = crop_faces_by_quads(IMAGE_SIZE, croppable_frames, quads)
 
-    return crops, orig_images, quads
+    return crops, orig_images, quads, cropped_files
 
 
 def crop_faces_by_quads(IMAGE_SIZE, files, quads):
     orig_images = []
     crops = []
+    cropped_files = []
     for quad, (_, path) in tqdm(zip(quads, files), total=len(quads)):
         crop = crop_image(path, IMAGE_SIZE, quad.copy())
         orig_image = Image.open(path)
         orig_images.append(orig_image)
         crops.append(crop)
-    return crops, orig_images
+        cropped_files.append(path)
+    return crops, orig_images, cropped_files
 
 
 def calc_alignment_coefficients(pa, pb):

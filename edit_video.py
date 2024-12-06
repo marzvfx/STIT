@@ -40,8 +40,10 @@ def calc_mask(inversion, segmentation_model):
 @click.option('--start_frame', type=int, default=0)
 @click.option('--end_frame', type=int, default=None)
 @click.option('-et', '--edit_type',
-              type=click.Choice(['interfacegan', 'styleclip_global'], case_sensitive=False),
+              type=click.Choice(['interfacegan', 'styleclip_global', 'from_pivots'], case_sensitive=False),
               default='interfacegan')
+@click.option('--start_pivot_name', type=str, default=None)
+@click.option('--end_pivot_name', type=str, default=None)
 @click.option('--beta', default=0.2, type=float)
 @click.option('--neutral_class', default='face', type=str)
 @click.option('--target_class', default=None, type=str)
@@ -55,7 +57,8 @@ def main(**config):
 
 
 def _main(input_folder, output_folder, start_frame, end_frame, run_name,
-          edit_range, edit_type, edit_name, use_mask, freeze_fine_layers, neutral_class, target_class, beta,
+          edit_range, edit_type, edit_name, start_pivot_name, end_pivot_name, use_mask,
+          freeze_fine_layers, neutral_class, target_class, beta,
           output_frames, feathering_radius, config):
     orig_files = make_dataset(input_folder)
     orig_files = orig_files[start_frame:end_frame]
@@ -86,11 +89,15 @@ def _main(input_folder, output_folder, start_frame, end_frame, run_name,
         edits, is_style_input = latent_editor.get_styleclip_global_edits(
             pivots, neutral_class, target_class, beta, edit_range, gen, edit_name
         )
+    elif edit_type == 'from_pivots':
+        _, _, start_ws, _ = load_generators(start_pivot_name)
+        _, _, end_ws, _ = load_generators(end_pivot_name)
     else:
         edits, is_style_input = latent_editor.get_interfacegan_edits(pivots, edit_name, edit_range)
 
     for edits_list, direction, factor in edits:
         video_frames = defaultdict(list)
+        final_frames = []
         for i, (orig_image, crop, quad, inverse_transform) in \
                 tqdm(enumerate(zip(orig_images, crops, quads, inverse_transforms)), total=len(orig_images)):
             w_pivot = pivots[i][None]
@@ -130,11 +137,13 @@ def _main(input_folder, output_folder, start_frame, end_frame, run_name,
             video_frame = concat_images_horizontally(orig_image, inversion_projection, edit_projection)
             video_frame = add_texts_to_image_vertical(['original', 'inversion', 'edit'], video_frame)
             video_frames[folder_name].append(video_frame)
+            final_frames.append(edit_projection)
 
         for folder_name, frames in video_frames.items():
             folder_path = os.path.join(output_folder, folder_name)
             os.makedirs(folder_path, exist_ok=True)
-            imageio.mimwrite(os.path.join(folder_path, 'out.mp4'), frames, fps=25, output_params=['-vf', 'fps=25'])
+            imageio.mimwrite(os.path.join(folder_path, 'concatenated_output.mp4'), frames, fps=25, output_params=['-vf', 'fps=25'])
+            imageio.mimwrite(os.path.join(folder_path, 'output.mp4'), final_frames, fps=25, output_params=['-vf', 'fps=25'])
 
 
 def save_image(image, file):
