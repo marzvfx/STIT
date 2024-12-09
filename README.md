@@ -24,6 +24,13 @@
 ```
 pip install git+https://github.com/openai/CLIP.git
 ```
+### Run Example
+Changes have been made to the original repository in order to find edit directions from a dataset automatically. 
+In order to do this, the following command can be run using the STIT docker image: 
+
+```
+docker run -it --gpus all     -v /home/npatel/Code/STIT:/workspace     -v /mnt/lipdub/Data/train:/mnt/lipdub/Data/train     --device /dev/nvidia0:/dev/nvidia0     --device /dev/nvidiactl:/dev/nvidiactl     --device /dev/nvidia-uvm:/dev/nvidia-uvm     stit /bin/bash -c "bash /workspace/run_seq_emotion_search.sh"
+```
 
 ### Pretrained models
 
