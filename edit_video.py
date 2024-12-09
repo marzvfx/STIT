@@ -36,14 +36,16 @@ def calc_mask(inversion, segmentation_model):
 @click.option('-i', '--input_folder', type=str, help='Path to (unaligned) images folder', required=True)
 @click.option('-o', '--output_folder', type=str, help='Path to output folder', required=True)
 @click.option('-r', '--run_name', type=str, required=True)
-@click.option('--use_mask/--no_mask', type=bool, default=True)
+@click.option('--use_mask/--no_mask', type=bool, default=False)
 @click.option('--start_frame', type=int, default=0)
 @click.option('--end_frame', type=int, default=None)
 @click.option('-et', '--edit_type',
-              type=click.Choice(['interfacegan', 'styleclip_global', 'from_pivots'], case_sensitive=False),
+              type=click.Choice(['interfacegan', 'styleclip_global', 'from_expression_dataset'], case_sensitive=False),
               default='interfacegan')
-@click.option('--start_pivot_name', type=str, default=None)
-@click.option('--end_pivot_name', type=str, default=None)
+@click.option('--start_expression_name', type=str, default=None)
+@click.option('--end_expression_name', type=str, default=None)
+@click.option('--expression_edits_dir', type=str,
+              default='/mnt/lipdub/Data/train/expression/stylegan_inversions/latents')
 @click.option('--beta', default=0.2, type=float)
 @click.option('--neutral_class', default='face', type=str)
 @click.option('--target_class', default=None, type=str)
@@ -57,8 +59,8 @@ def main(**config):
 
 
 def _main(input_folder, output_folder, start_frame, end_frame, run_name,
-          edit_range, edit_type, edit_name, start_pivot_name, end_pivot_name, use_mask,
-          freeze_fine_layers, neutral_class, target_class, beta,
+          edit_range, edit_type, edit_name, start_expression_name, end_expression_name, use_mask,
+          freeze_fine_layers, neutral_class, target_class, beta, expression_edits_dir,
           output_frames, feathering_radius, config):
     orig_files = make_dataset(input_folder)
     orig_files = orig_files[start_frame:end_frame]
@@ -70,7 +72,7 @@ def _main(input_folder, output_folder, start_frame, end_frame, run_name,
 
     gen, orig_gen, pivots, quads = load_generators(run_name)
 
-    crops, orig_images = crop_faces_by_quads(image_size, orig_files, quads)
+    crops, orig_images, _ = crop_faces_by_quads(image_size, orig_files, quads)
 
     inverse_transforms = [
         calc_alignment_coefficients(quad + 0.5, [[0, 0], [0, image_size], [image_size, image_size], [image_size, 0]])
@@ -89,9 +91,16 @@ def _main(input_folder, output_folder, start_frame, end_frame, run_name,
         edits, is_style_input = latent_editor.get_styleclip_global_edits(
             pivots, neutral_class, target_class, beta, edit_range, gen, edit_name
         )
-    elif edit_type == 'from_pivots':
-        _, _, start_ws, _ = load_generators(start_pivot_name)
-        _, _, end_ws, _ = load_generators(end_pivot_name)
+    elif edit_type == 'from_expression_dataset':
+        base_folder_path = os.path.join(expression_edits_dir, f'{start_expression_name}_to_{end_expression_name}')
+        saved_latents_dir = sorted(os.listdir(base_folder_path))[0]
+        latent_vector_path = os.path.join(base_folder_path,
+                                          saved_latents_dir,
+                                          f"{start_expression_name}_to_{end_expression_name}_direction.pt")
+        delta_w = torch.load(latent_vector_path, weights_only=True)
+        lambda_w = 8
+        edits = [(None, end_expression_name, lambda_w)]
+        is_style_input = False
     else:
         edits, is_style_input = latent_editor.get_interfacegan_edits(pivots, edit_name, edit_range)
 
@@ -101,11 +110,13 @@ def _main(input_folder, output_folder, start_frame, end_frame, run_name,
         for i, (orig_image, crop, quad, inverse_transform) in \
                 tqdm(enumerate(zip(orig_images, crops, quads, inverse_transforms)), total=len(orig_images)):
             w_pivot = pivots[i][None]
-            if is_style_input:
-                w_edit = [style[i][None] for style in edits_list]
+            if edit_type != "from_expression_dataset":
+                if is_style_input:
+                    w_edit = [style[i][None] for style in edits_list]
+                else:
+                    w_edit = edits_list[i][None]
             else:
-                w_edit = edits_list[i][None]
-
+                w_edit = w_pivot + (lambda_w * delta_w)
             edited_tensor = gen.synthesis.forward(w_edit, noise_mode='const', force_fp32=False,
                                                   style_input=is_style_input)
             mask = None
