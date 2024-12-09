@@ -1,4 +1,6 @@
 import os
+import pickle
+import time
 from collections import defaultdict
 from dataclasses import dataclass
 import random
@@ -77,11 +79,21 @@ def make_dataset_recursive(root_dir):
     return images
 
 
-def make_dataset_recursive_with_samples(root_dir) -> List[DataSample]:
+def make_dataset_recursive_with_samples(root_dir, cache_file=None) -> List[DataSample]:
     """
     Recursively collect all images in directories containing 'frames' and
     create DataSample instances with metadata.
+    Cache the results for faster subsequent loads.
     """
+    if cache_file and os.path.exists(cache_file):
+        print(f"Loading cached dataset from {cache_file}")
+        with open(cache_file, "rb") as f:
+            samples = pickle.load(f)
+        return samples
+
+    print("Cache file not found. Generating dataset...")
+    start_time = time.time()
+
     samples = []
     assert os.path.isdir(root_dir), f"{root_dir} is not a valid directory"
 
@@ -92,7 +104,6 @@ def make_dataset_recursive_with_samples(root_dir) -> List[DataSample]:
         for fname in fnames:
             if fname.endswith(('.jpg', '.jpeg', '.png', '.bmp')):
                 file_path = os.path.join(root, fname)
-                # Extract metadata from the file path
                 parts = file_path.split(os.sep)
                 identity = parts[-7]
                 pose = parts[-6]
@@ -100,6 +111,16 @@ def make_dataset_recursive_with_samples(root_dir) -> List[DataSample]:
                 level = parts[-4]
                 frame = os.path.splitext(fname)[0]
                 samples.append(DataSample(file_path, identity, pose, expression, level, frame))
+
+    end_time = time.time()
+    duration = end_time - start_time
+    print(f"Dataset generated in {duration:.2f} seconds.")
+
+    if cache_file:
+        print(f"Caching dataset to {cache_file}")
+        with open(cache_file, "wb") as f:
+            pickle.dump(samples, f)
+
     return samples
 
 

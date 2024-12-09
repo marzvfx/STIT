@@ -77,9 +77,10 @@ def get_e4e_inversion(image, e4e_inversion_net, e4e_image_transform, device):
 
 
 @click.command()
-@click.option('-s', '--starting_expression', type=str, help='Path to processed images folder', required=True)
-@click.option('-t', '--target_expression', type=str, help='Path to output folder', required=True)
+@click.option('-s', '--starting_expression', type=str, help='Starting expression', required=True)
+@click.option('-t', '--target_expression', type=str, help='Target expression to move towards', required=True)
 @click.option('-d', '--dataset_root', type=str, required=True)
+@click.option('--samples_list_dir', type=str, required=False)
 @click.option('-l', '--latent_directory_root', type=str, required=True)
 @click.option('-o', '--visualization_folder', type=str, help='Path to visualization folder', required=True)
 @click.option('-n', '--num_frames_per_identity', type=int, help='Number of frames to use per ID', default=10)
@@ -92,7 +93,7 @@ def main(**config):
 
 
 def _main(starting_expression, target_expression, dataset_root, scale, center_sigma, xy_sigma, use_fa,
-          visualization_folder, latent_directory_root, num_frames_per_identity, config):
+          visualization_folder, latent_directory_root, num_frames_per_identity, samples_list_dir, config):
 
     # latent_directory_root = os.path.join(latent_directory_root, f"num_frames_{num_frames_per_identity}")
     # loaded_starting_ws, loaded_starting_mean_w, \
@@ -103,7 +104,7 @@ def _main(starting_expression, target_expression, dataset_root, scale, center_si
     # print("Direction:", loaded_direction.shape)
     #
 
-    all_samples = make_dataset_recursive_with_samples(dataset_root)
+    all_samples = make_dataset_recursive_with_samples(dataset_root, cache_file=samples_list_dir)
     print(f"Total data samples: {len(all_samples)}")
 
     # Filter samples for starting and target expressions
@@ -175,7 +176,9 @@ def _main(starting_expression, target_expression, dataset_root, scale, center_si
 
     # visualize the inversions. We wanna concat [[black, starting image, starting inversion, black],
     # [modified inversion x 1, modified inversion x 2, modified inversion x 3, modified inversion x 4]]
-    visualization_folder = os.path.join(visualization_folder, f"{starting_expression}_to_{target_expression}")
+    visualization_folder = os.path.join(visualization_folder,
+                                        f"{starting_expression}_to_{target_expression}",
+                                        f"num_frames_{num_frames_per_identity}")
     os.makedirs(visualization_folder, exist_ok=True)
     expression_range = range(8)
     direction_scalar = 1
